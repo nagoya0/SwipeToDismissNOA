@@ -73,6 +73,7 @@ public class SwipeDismissTouchListener implements View.OnTouchListener {
 
     // Transient properties
     private float mDownX;
+    private float mDownY;
     private boolean mSwiping;
     private Object mToken;
     private VelocityTracker mVelocityTracker;
@@ -125,6 +126,7 @@ public class SwipeDismissTouchListener implements View.OnTouchListener {
             case MotionEvent.ACTION_DOWN: {
                 // TODO: ensure this is a finger, and set a flag
                 mDownX = motionEvent.getRawX();
+                mDownY = motionEvent.getRawY();
                 mVelocityTracker = VelocityTracker.obtain();
                 mVelocityTracker.addMovement(motionEvent);
                 view.onTouchEvent(motionEvent);
@@ -137,19 +139,22 @@ public class SwipeDismissTouchListener implements View.OnTouchListener {
                 }
 
                 float deltaX = motionEvent.getRawX() - mDownX;
+                float deltaY = motionEvent.getRawY() - mDownY;
                 mVelocityTracker.addMovement(motionEvent);
                 mVelocityTracker.computeCurrentVelocity(1000);
                 float velocityX = Math.abs(mVelocityTracker.getXVelocity());
                 float velocityY = Math.abs(mVelocityTracker.getYVelocity());
                 boolean dismiss = false;
                 boolean dismissRight = false;
-                if (Math.abs(deltaX) > mViewWidth / 2) {
-                    dismiss = true;
-                    dismissRight = deltaX > 0;
-                } else if (Math.abs(deltaX) > mSlop && mMinFlingVelocity <= velocityX
-                		&& velocityX <= mMaxFlingVelocity && velocityY < velocityX) {
-                    dismiss = true;
-                    dismissRight = mVelocityTracker.getXVelocity() > 0;
+                if(Math.abs(deltaY) < Math.abs(deltaX)) {
+                    if (Math.abs(deltaX) > mViewWidth / 2) {
+                        dismiss = true;
+                        dismissRight = deltaX > 0;
+                    } else if (Math.abs(deltaX) > mSlop && mMinFlingVelocity <= velocityX
+                            && velocityX <= mMaxFlingVelocity && velocityY < velocityX) {
+                        dismiss = true;
+                        dismissRight = mVelocityTracker.getXVelocity() > 0;
+                    }
                 }
                 if (dismiss) {
                     // dismiss
@@ -174,6 +179,7 @@ public class SwipeDismissTouchListener implements View.OnTouchListener {
                 mVelocityTracker = null;
                 mTranslationX = 0;
                 mDownX = 0;
+                mDownY = 0;
                 mSwiping = false;
                 break;
             }

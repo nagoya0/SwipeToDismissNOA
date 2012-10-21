@@ -93,6 +93,7 @@ public class SwipeDismissListViewTouchListener implements View.OnTouchListener {
     private List<PendingDismissData> mPendingDismisses = new ArrayList<PendingDismissData>();
     private int mDismissAnimationRefCount = 0;
     private float mDownX;
+    private float mDownY;
     private boolean mSwiping;
     private VelocityTracker mVelocityTracker;
     private int mDownPosition;
@@ -198,6 +199,7 @@ public class SwipeDismissListViewTouchListener implements View.OnTouchListener {
 
                 if (mDownView != null) {
                     mDownX = motionEvent.getRawX();
+                    mDownY = motionEvent.getRawY();
                     mDownPosition = mListView.getPositionForView(mDownView);
 
                     mVelocityTracker = VelocityTracker.obtain();
@@ -213,19 +215,22 @@ public class SwipeDismissListViewTouchListener implements View.OnTouchListener {
                 }
 
                 float deltaX = motionEvent.getRawX() - mDownX;
+                float deltaY = motionEvent.getRawX() - mDownY;
                 mVelocityTracker.addMovement(motionEvent);
                 mVelocityTracker.computeCurrentVelocity(1000);
                 float velocityX = Math.abs(mVelocityTracker.getXVelocity());
                 float velocityY = Math.abs(mVelocityTracker.getYVelocity());
                 boolean dismiss = false;
                 boolean dismissRight = false;
-                if (Math.abs(deltaX) > mViewWidth / 2) {
-                    dismiss = true;
-                    dismissRight = deltaX > 0;
-                } else if (Math.abs(deltaX) > mSlop && mMinFlingVelocity <= velocityX
-                		&& velocityX <= mMaxFlingVelocity && velocityY < velocityX) {
-                    dismiss = true;
-                    dismissRight = mVelocityTracker.getXVelocity() > 0;
+                if(Math.abs(deltaY) < Math.abs(deltaX)) {
+                    if (Math.abs(deltaX) > mViewWidth / 2) {
+                        dismiss = true;
+                        dismissRight = deltaX > 0;
+                    } else if (Math.abs(deltaX) > mSlop && mMinFlingVelocity <= velocityX
+                            && velocityX <= mMaxFlingVelocity && velocityY < velocityX) {
+                        dismiss = true;
+                        dismissRight = mVelocityTracker.getXVelocity() > 0;
+                    }
                 }
                 if (dismiss) {
                     // dismiss
@@ -252,6 +257,7 @@ public class SwipeDismissListViewTouchListener implements View.OnTouchListener {
                 }
                 mVelocityTracker = null;
                 mDownX = 0;
+                mDownY = 0;
                 mDownView = null;
                 mDownPosition = ListView.INVALID_POSITION;
                 mSwiping = false;
