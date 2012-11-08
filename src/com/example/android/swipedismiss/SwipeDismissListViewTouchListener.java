@@ -93,6 +93,7 @@ public class SwipeDismissListViewTouchListener implements View.OnTouchListener {
     private List<PendingDismissData> mPendingDismisses = new ArrayList<PendingDismissData>();
     private int mDismissAnimationRefCount = 0;
     private float mDownX;
+    private float mDownY;
     private boolean mSwiping;
     private VelocityTracker mVelocityTracker;
     private int mDownPosition;
@@ -174,7 +175,7 @@ public class SwipeDismissListViewTouchListener implements View.OnTouchListener {
             mViewWidth = mListView.getWidth();
         }
 
-        switch (motionEvent.getActionMasked()) {
+        switch (MotionEventCompat.getActionMasked(motionEvent)) {
             case MotionEvent.ACTION_DOWN: {
                 if (mPaused) {
                     return false;
@@ -201,6 +202,7 @@ public class SwipeDismissListViewTouchListener implements View.OnTouchListener {
 
                 if (mDownView != null) {
                     mDownX = motionEvent.getRawX();
+                    mDownY = motionEvent.getRawY();
                     mDownPosition = mListView.getPositionForView(mDownView);
                     
                     if (null != mCallback && mCallback.canDismiss(mListView, mDownPosition)) {
@@ -218,19 +220,22 @@ public class SwipeDismissListViewTouchListener implements View.OnTouchListener {
                 }
 
                 float deltaX = motionEvent.getRawX() - mDownX;
+                float deltaY = motionEvent.getRawY() - mDownY;
                 mVelocityTracker.addMovement(motionEvent);
                 mVelocityTracker.computeCurrentVelocity(1000);
                 float velocityX = Math.abs(mVelocityTracker.getXVelocity());
                 float velocityY = Math.abs(mVelocityTracker.getYVelocity());
                 boolean dismiss = false;
                 boolean dismissRight = false;
-                if (Math.abs(deltaX) > mViewWidth / 2) {
-                    dismiss = true;
-                    dismissRight = deltaX > 0;
-                } else if (mMinFlingVelocity <= velocityX && velocityX <= mMaxFlingVelocity
-                        && velocityY < velocityX) {
-                    dismiss = true;
-                    dismissRight = mVelocityTracker.getXVelocity() > 0;
+                if(Math.abs(deltaY) < Math.abs(deltaX)) {
+                    if (Math.abs(deltaX) > mViewWidth / 2) {
+                        dismiss = true;
+                        dismissRight = deltaX > 0;
+                    } else if (Math.abs(deltaX) > mSlop && mMinFlingVelocity <= velocityX
+                            && velocityX <= mMaxFlingVelocity && velocityY < velocityX) {
+                        dismiss = true;
+                        dismissRight = mVelocityTracker.getXVelocity() > 0;
+                    }
                 }
                 if (dismiss) {
                     // dismiss
@@ -257,6 +262,7 @@ public class SwipeDismissListViewTouchListener implements View.OnTouchListener {
                 }
                 mVelocityTracker = null;
                 mDownX = 0;
+                mDownY = 0;
                 mDownView = null;
                 mDownPosition = ListView.INVALID_POSITION;
                 mSwiping = false;
@@ -277,8 +283,8 @@ public class SwipeDismissListViewTouchListener implements View.OnTouchListener {
                     // Cancel ListView's touch (un-highlighting the item)
                     MotionEvent cancelEvent = MotionEvent.obtain(motionEvent);
                     cancelEvent.setAction(MotionEvent.ACTION_CANCEL |
-                            (motionEvent.getActionIndex()
-                                    << MotionEvent.ACTION_POINTER_INDEX_SHIFT));
+                            (MotionEventCompat.getActionIndex(motionEvent)
+                                    << MotionEventCompat.ACTION_POINTER_INDEX_SHIFT));
                     mListView.onTouchEvent(cancelEvent);
                 }
 
