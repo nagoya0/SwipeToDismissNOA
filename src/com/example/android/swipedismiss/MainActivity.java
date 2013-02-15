@@ -56,15 +56,19 @@ public class MainActivity extends ListActivity {
         SwipeDismissListViewTouchListener touchListener =
                 new SwipeDismissListViewTouchListener(
                         listView,
-                        new SwipeDismissListViewTouchListener.OnDismissCallback() {
+                        new SwipeDismissListViewTouchListener.DismissCallbacks() {
                             @Override
-                            public void onDismiss(ListView listView, int[] reverseSortedPositions) {
+                            public boolean canDismiss(int position) {
+                                return true;
+                            }
+                            @Override
+                            public void onDismiss(ListView listView,
+                                    int[] reverseSortedPositions) {
                                 for (int position : reverseSortedPositions) {
                                     mAdapter.remove(mAdapter.getItem(position));
                                 }
                                 mAdapter.notifyDataSetChanged();
-                            }
-                        });
+                            }});
         listView.setOnTouchListener(touchListener);
         // Setting this scroll listener is required to ensure that during ListView scrolling,
         // we don't look for swipes.
@@ -89,12 +93,11 @@ public class MainActivity extends ListActivity {
             dismissableButton.setOnTouchListener(new SwipeDismissTouchListener(
                     dismissableButton,
                     null,
-                    new SwipeDismissTouchListener.OnDismissCallback() {
+                    new SwipeDismissTouchListener.DismissCallbacks() {
                         @Override
                         public void onDismiss(View view, Object token) {
                             dismissableContainer.removeView(dismissableButton);
-                        }
-                    }));
+                        }}));
             dismissableContainer.addView(dismissableButton);
         }
     }
