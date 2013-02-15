@@ -147,8 +147,8 @@ public class SwipeDismissTouchListener implements View.OnTouchListener {
                 if (Math.abs(deltaX) > mViewWidth / 2) {
                     dismiss = true;
                     dismissRight = deltaX > 0;
-                } else if (mMinFlingVelocity <= absVelocityX && absVelocityX <= mMaxFlingVelocity
-                        && absVelocityY < absVelocityX) {
+                } else if (Math.abs(deltaX) > mSlop && mMinFlingVelocity <= absVelocityX
+                        && absVelocityX <= mMaxFlingVelocity && absVelocityY < absVelocityX) {
                     // dismiss only if flinging in the same direction as dragging
                     dismiss = (velocityX < 0) == (deltaX < 0);
                     dismissRight = mVelocityTracker.getXVelocity() > 0;

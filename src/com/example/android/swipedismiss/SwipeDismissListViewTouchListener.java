@@ -144,7 +144,24 @@ public class SwipeDismissListViewTouchListener implements View.OnTouchListener {
      * @param enabled Whether or not to watch for gestures.
      */
     public void setEnabled(boolean enabled) {
+        if (!mPaused && !enabled) {
+            reset();
+        }
         mPaused = !enabled;
+    }
+
+    /**
+     * Reinitialize internal states.
+     */
+    private void reset() {
+        if (mVelocityTracker != null) {
+            mVelocityTracker.recycle();
+        }
+        mVelocityTracker = null;
+        mDownX = 0;
+        mDownView = null;
+        mDownPosition = ListView.INVALID_POSITION;
+        mSwiping = false;
     }
 
     /**
@@ -161,7 +178,7 @@ public class SwipeDismissListViewTouchListener implements View.OnTouchListener {
         return new AbsListView.OnScrollListener() {
             @Override
             public void onScrollStateChanged(AbsListView absListView, int scrollState) {
-                setEnabled(scrollState != AbsListView.OnScrollListener.SCROLL_STATE_TOUCH_SCROLL);
+                setEnabled(scrollState == AbsListView.OnScrollListener.SCROLL_STATE_IDLE);
             }
 
             @Override
@@ -229,8 +246,8 @@ public class SwipeDismissListViewTouchListener implements View.OnTouchListener {
                 if (Math.abs(deltaX) > mViewWidth / 2) {
                     dismiss = true;
                     dismissRight = deltaX > 0;
-                } else if (mMinFlingVelocity <= absVelocityX && absVelocityX <= mMaxFlingVelocity
-                        && absVelocityY < absVelocityX) {
+                } else if (Math.abs(deltaX) > mSlop && mMinFlingVelocity <= absVelocityX
+                        && absVelocityX <= mMaxFlingVelocity && absVelocityY < absVelocityX) {
                     // dismiss only if flinging in the same direction as dragging
                     dismiss = (velocityX < 0) == (deltaX < 0);
                     dismissRight = mVelocityTracker.getXVelocity() > 0;
@@ -258,12 +275,7 @@ public class SwipeDismissListViewTouchListener implements View.OnTouchListener {
                             .setDuration(mAnimationTime)
                             .setListener(null);
                 }
-                mVelocityTracker.recycle();
-                mVelocityTracker = null;
-                mDownX = 0;
-                mDownView = null;
-                mDownPosition = ListView.INVALID_POSITION;
-                mSwiping = false;
+                reset();
                 break;
             }
 
