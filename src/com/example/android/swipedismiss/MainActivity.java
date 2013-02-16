@@ -20,9 +20,14 @@ package com.example.android.swipedismiss;
 
 import android.app.ListActivity;
 import android.os.Bundle;
+import android.view.ContextMenu;
+import android.view.ContextMenu.ContextMenuInfo;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AbsListView;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
@@ -33,6 +38,7 @@ import java.util.Arrays;
 
 public class MainActivity extends ListActivity {
     ArrayAdapter<String> mAdapter;
+    SwipeDismissListViewTouchListener touchListener;
 
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -51,10 +57,11 @@ public class MainActivity extends ListActivity {
         setListAdapter(mAdapter);
 
         ListView listView = getListView();
+        registerForContextMenu(listView);
         // Create a ListView-specific touch listener. ListViews are given special treatment because
         // by default they handle touches for their list items... i.e. they're in charge of drawing
         // the pressed state (the list selector), handling list item clicks, etc.
-        SwipeDismissListViewTouchListener touchListener =
+        touchListener =
                 new SwipeDismissListViewTouchListener(
                         listView,
                         new SwipeDismissListViewTouchListener.DismissCallbacks() {
@@ -108,5 +115,32 @@ public class MainActivity extends ListActivity {
         Toast.makeText(this,
                 "Clicked " + getListAdapter().getItem(position).toString(),
                 Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public void onCreateContextMenu(ContextMenu menu, View v,
+            ContextMenuInfo menuInfo) {
+        // prevent swipe
+        touchListener.setEnabled(false);
+
+        super.onCreateContextMenu(menu, v, menuInfo);
+        menu.setHeaderTitle("Context Menu Sample");
+        menu.add("lorem ipsum");
+    }
+
+    @Override
+    public boolean onContextItemSelected(MenuItem item) {
+        AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) item.getMenuInfo();
+        Toast.makeText(this,
+                "ContextItemSelected " + getListAdapter().getItem(info.position).toString(),
+                Toast.LENGTH_SHORT).show();
+        return true;
+    }
+
+    @Override
+    public void onContextMenuClosed(Menu menu) {
+        super.onContextMenuClosed(menu);
+        // re-enable swipe
+        touchListener.setEnabled(true);
     }
 }
