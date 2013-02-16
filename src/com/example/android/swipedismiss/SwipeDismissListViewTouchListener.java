@@ -96,8 +96,11 @@ public class SwipeDismissListViewTouchListener implements View.OnTouchListener {
     private boolean mCanDismissCurrent;
     private VelocityTracker mVelocityTracker;
     private int mDownPosition;
+    private long mDownItemId;
     private View mDownView;
     private boolean mPaused;
+
+    private OnSwipeCallback mOnSwipeCallback;
 
     /**
      * The callback interface used by {@link SwipeDismissListViewTouchListener} to inform its client
@@ -116,8 +119,15 @@ public class SwipeDismissListViewTouchListener implements View.OnTouchListener {
          * @param listView               The originating {@link AbsListView}.
          * @param reverseSortedPositions An array of positions to dismiss, sorted in descending
          *                               order for convenience.
+         * @param reverseSortedItemIds   An array of item-ids to dismiss, sorted in descending
+         *                               order for convenience.
          */
-        void onDismiss(AbsListView listView, int[] reverseSortedPositions);
+        void onDismiss(AbsListView listView, int[] reverseSortedPositions, long[] reverseSortedItemIds);
+    }
+
+    public interface OnSwipeCallback {
+        void onSwipeStart(View swipeView, int swipePosition, long swipeItemId);
+        void onSwipeFinish(View swipeView, int swipePosition, long swipeItemId, boolean cancelDismiss);
     }
 
     /**
@@ -127,7 +137,8 @@ public class SwipeDismissListViewTouchListener implements View.OnTouchListener {
      * @param callbacks The callback to trigger when the user has indicated that she would like to
      *                 dismiss one or more list items.
      */
-    public SwipeDismissListViewTouchListener(AbsListView listView, DismissCallbacks callbacks) {
+    public SwipeDismissListViewTouchListener(AbsListView listView, DismissCallbacks callbacks,
+            OnSwipeCallback onSwipeCallback) {
         ViewConfiguration vc = ViewConfiguration.get(listView.getContext());
         mSlop = vc.getScaledTouchSlop();
         mMinFlingVelocity = vc.getScaledMinimumFlingVelocity() * 16;
@@ -136,6 +147,7 @@ public class SwipeDismissListViewTouchListener implements View.OnTouchListener {
                 android.R.integer.config_shortAnimTime);
         mListView = listView;
         mCallbacks = callbacks;
+        mOnSwipeCallback = onSwipeCallback;
     }
 
     /**
@@ -161,6 +173,7 @@ public class SwipeDismissListViewTouchListener implements View.OnTouchListener {
         mDownX = 0;
         mDownView = null;
         mDownPosition = AbsListView.INVALID_POSITION;
+        mDownItemId = -1;
         mSwiping = false;
         mCanDismissCurrent = false;
     }
@@ -222,6 +235,7 @@ public class SwipeDismissListViewTouchListener implements View.OnTouchListener {
                 if (mDownView != null) {
                     mDownX = motionEvent.getRawX();
                     mDownPosition = mListView.getPositionForView(mDownView);
+                    mDownItemId = mListView.getAdapter().getItemId(mDownPosition);
                     mCanDismissCurrent = mCallbacks.canDismiss(mDownPosition);
                     mVelocityTracker = VelocityTracker.obtain();
                     mVelocityTracker.addMovement(motionEvent);
@@ -258,6 +272,7 @@ public class SwipeDismissListViewTouchListener implements View.OnTouchListener {
                     // dismiss
                     final View downView = mDownView; // mDownView gets null'd before animation ends
                     final int downPosition = mDownPosition;
+                    final long downItemId = mDownItemId;
                     ++mDismissAnimationRefCount;
                     animate(mDownView)
                             .translationX(dismissRight ? mViewWidth : -mViewWidth)
@@ -266,7 +281,7 @@ public class SwipeDismissListViewTouchListener implements View.OnTouchListener {
                             .setListener(new AnimatorListenerAdapter() {
                                 @Override
                                 public void onAnimationEnd(Animator animation) {
-                                    performDismiss(downView, downPosition);
+                                    performDismiss(downView, downPosition, downItemId);
                                 }
                             });
                 } else {
@@ -276,6 +291,10 @@ public class SwipeDismissListViewTouchListener implements View.OnTouchListener {
                             .alpha(1)
                             .setDuration(mAnimationTime)
                             .setListener(null);
+                }
+
+                if (mOnSwipeCallback != null) {
+                    mOnSwipeCallback.onSwipeFinish(mDownView, mDownPosition, mDownItemId, !dismiss);
                 }
                 reset();
                 break;
@@ -288,7 +307,7 @@ public class SwipeDismissListViewTouchListener implements View.OnTouchListener {
 
                 mVelocityTracker.addMovement(motionEvent);
                 float deltaX = motionEvent.getRawX() - mDownX;
-                if (Math.abs(deltaX) > mSlop) {
+                if (!mSwiping && Math.abs(deltaX) > mSlop) {
                     mSwiping = true;
                     mListView.requestDisallowInterceptTouchEvent(true);
 
@@ -299,6 +318,10 @@ public class SwipeDismissListViewTouchListener implements View.OnTouchListener {
                                     << MotionEventCompat.ACTION_POINTER_INDEX_SHIFT));
                     mListView.onTouchEvent(cancelEvent);
                     cancelEvent.recycle();
+
+                    if (mOnSwipeCallback != null) {
+                        mOnSwipeCallback.onSwipeStart(mDownView, mDownPosition, mDownItemId);
+                    }
                 }
 
                 if (mSwiping) {
@@ -319,10 +342,12 @@ public class SwipeDismissListViewTouchListener implements View.OnTouchListener {
 
     class PendingDismissData implements Comparable<PendingDismissData> {
         public int position;
+        public long itemId;
         public View view;
 
-        public PendingDismissData(int position, View view) {
+        public PendingDismissData(int position, long itemId, View view) {
             this.position = position;
+            this.itemId = itemId;
             this.view = view;
         }
 
@@ -333,7 +358,7 @@ public class SwipeDismissListViewTouchListener implements View.OnTouchListener {
         }
     }
 
-    private void performDismiss(final View dismissView, final int dismissPosition) {
+    private void performDismiss(final View dismissView, final int dismissPosition, long dismissItemId) {
         // Animate the dismissed list item to zero-height and fire the dismiss callback when
         // all dismissed list item animations have completed. This triggers layout on each animation
         // frame; in the future we may want to do something smarter and more performant.
@@ -353,20 +378,22 @@ public class SwipeDismissListViewTouchListener implements View.OnTouchListener {
                     Collections.sort(mPendingDismisses);
 
                     int[] dismissPositions = new int[mPendingDismisses.size()];
+                    long[] dismissItemIds = new long[mPendingDismisses.size()];
                     for (int i = mPendingDismisses.size() - 1; i >= 0; i--) {
                         dismissPositions[i] = mPendingDismisses.get(i).position;
+                        dismissItemIds[i] = mPendingDismisses.get(i).itemId;
                     }
-                    mCallbacks.onDismiss(mListView, dismissPositions);
+                    mCallbacks.onDismiss(mListView, dismissPositions, dismissItemIds);
 
-                    ViewGroup.LayoutParams lp;
-                    for (PendingDismissData pendingDismiss : mPendingDismisses) {
-                        // Reset view presentation
-                        setAlpha(pendingDismiss.view, 1f);
-                        setTranslationX(pendingDismiss.view, 0);
-                        lp = pendingDismiss.view.getLayoutParams();
-                        lp.height = originalHeight;
-                        pendingDismiss.view.setLayoutParams(lp);
-                    }
+//                    ViewGroup.LayoutParams lp;
+//                    for (PendingDismissData pendingDismiss : mPendingDismisses) {
+//                        // Reset view presentation
+//                        setAlpha(pendingDismiss.view, 1f);
+//                        setTranslationX(pendingDismiss.view, 0);
+//                        lp = pendingDismiss.view.getLayoutParams();
+//                        lp.height = originalHeight;
+//                        pendingDismiss.view.setLayoutParams(lp);
+//                    }
 
                     mPendingDismisses.clear();
                 }
@@ -381,7 +408,7 @@ public class SwipeDismissListViewTouchListener implements View.OnTouchListener {
             }
         });
 
-        mPendingDismisses.add(new PendingDismissData(dismissPosition, dismissView));
+        mPendingDismisses.add(new PendingDismissData(dismissPosition, dismissItemId, dismissView));
         animator.start();
     }
 }
