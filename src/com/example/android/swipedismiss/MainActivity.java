@@ -22,6 +22,7 @@ import android.app.ListActivity;
 import android.os.Bundle;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AbsListView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
@@ -62,7 +63,7 @@ public class MainActivity extends ListActivity {
                                 return true;
                             }
                             @Override
-                            public void onDismiss(ListView listView,
+                            public void onDismiss(AbsListView listView,
                                     int[] reverseSortedPositions) {
                                 for (int position : reverseSortedPositions) {
                                     mAdapter.remove(mAdapter.getItem(position));
